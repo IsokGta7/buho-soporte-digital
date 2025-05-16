@@ -12,30 +12,33 @@ interface TicketTableProps {
 
 export const TicketTable: React.FC<TicketTableProps> = ({ selectedCategory }) => {
   const fetchRecurringIssues = async () => {
-    let query = supabase
-      .from('tickets')
-      .select('title, category, count(*)')
-      .order('count', { ascending: false });
-      
-    if (selectedCategory && selectedCategory !== 'all') {
-      query = query.eq('category', selectedCategory);
-    }
-    
-    const { data, error } = await query.limit(10);
-    
-    if (error) {
-      console.error('Error fetching recurring issues:', error);
-      throw error;
-    }
-    
-    // Format the data to match our expected structure
-    return data.map((item: any, index: number) => ({
-      id: index + 1,
-      issue: item.title,
-      category: item.category,
-      count: item.count
-    }));
+  // Build our RPC args (we'll pass null for dates until you wire up a dateRange)
+  const args = {
+    category_filter: selectedCategory && selectedCategory !== 'all'
+      ? selectedCategory
+      : null,
+    date_from: null,
+    date_to:   null,
   };
+
+  const { data, error } = await supabase
+    .rpc('get_top_recurring_issues', args);
+
+  if (error) {
+    console.error('Error fetching recurring issues:', error);
+    throw error;
+  }
+
+  // Map the result into your table’s shape
+  return (data ?? []).map((row, idx) => ({
+    id:       idx + 1,
+    issue:    row.title,
+    category: row.category,
+    count:    Number(row.count),
+  }));
+};
+
+
   
   const { data = [], isLoading, error } = useQuery({
     queryKey: ['recurringIssues', selectedCategory],

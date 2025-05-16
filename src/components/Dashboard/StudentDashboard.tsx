@@ -12,6 +12,13 @@ interface ServiceStatusResponse {
   [key: string]: string; // Generic response object with string values
 }
 
+interface Anuncio {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+}
+
 export const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   
@@ -75,6 +82,23 @@ export const StudentDashboard: React.FC = () => {
     queryFn: fetchStudentTickets,
     enabled: !!user,
   });
+
+  interface Anuncio { id: string; title: string; description: string; created_at: string }
+  const fetchAnuncios = async (): Promise<Anuncio[]> => {
+    const { data, error } = await supabase
+      .from<Anuncio>('anuncios')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    return data ?? [];
+  };
+    const { data: anuncios = [], isLoading: loadingAnuncios } = useQuery({
+  queryKey: ['anuncios'],
+  queryFn: fetchAnuncios,
+});
+
   
   const { data: services = {
     wifi_campus: 'operational',
@@ -141,7 +165,7 @@ export const StudentDashboard: React.FC = () => {
               <div className="space-y-2">
                 {tickets.map((ticket: any) => (
                   <Link to="/tickets" key={ticket.id} className="block">
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md hover:bg-gray-100">
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md hover:bg-gray-100 text-gray-800">
                       <div>
                         <p className="font-medium">{ticket.title}</p>
                         <p className="text-sm text-muted-foreground">
@@ -174,22 +198,34 @@ export const StudentDashboard: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* ← Replace your old static “Anuncios” div with this: */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Anuncios</CardTitle>
             <CardDescription>Información importante del departamento de TI</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="p-3 border-l-4 border-blue-500 bg-blue-50 rounded">
-                <p className="font-medium">Mantenimiento Programado</p>
-                <p className="text-sm">El servidor de archivos estará en mantenimiento este sábado de 2am a 5am.</p>
+            {loadingAnuncios ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
-              <div className="p-3 border-l-4 border-green-500 bg-green-50 rounded">
-                <p className="font-medium">Nueva Versión del Portal</p>
-                <p className="text-sm">Hemos actualizado el portal estudiantil. Explora las nuevas características.</p>
+            ) : anuncios.length > 0 ? (
+              <div className="space-y-3">
+                {anuncios.map(a => (
+                  <div key={a.id} className="p-3 border-l-4 border-blue-500 bg-blue-50 rounded">
+                    <p className="font-medium text-gray-900">{a.title}</p>
+                    <p className="text-sm text-gray-800">{a.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(a.created_at).toLocaleDateString('es-MX')}
+                    </p>
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <p className="text-center py-4 text-muted-foreground">
+                No hay anuncios en este momento
+              </p>
+            )}
           </CardContent>
         </Card>
         

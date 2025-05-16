@@ -1,73 +1,81 @@
-# Welcome to your Lovable project
+Welcome to your BUHO Soporte Digital project
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/ff56cb9c-5543-42ad-a9fc-fd7639265604
+**Repo URL**: \<YOUR\_GIT\_URL>
 
-## How can I edit this code?
+## How to edit this code
 
-There are several ways of editing your application.
+You have multiple options to develop and maintain this application:
 
-**Use Lovable**
+### 1. Use your preferred IDE
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ff56cb9c-5543-42ad-a9fc-fd7639265604) and start prompting.
+1. Clone the repository:
 
-Changes made via Lovable will be committed automatically to this repo.
+   ```bash
+   git clone <YOUR_GIT_URL>
+   ```
+2. Change to the project folder:
 
-**Use your preferred IDE**
+   ```bash
+   cd buho-soporte-digital
+   ```
+3. Install dependencies:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+   ```bash
+   npm install
+   ```
+4. Start the development server with hot reload:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+   ```bash
+   npm run dev
+   ```
 
-Follow these steps:
+### 2. Edit files directly on GitHub
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. Navigate to the file you want to change in the GitHub repo.
+2. Click the pencil (edit) icon.
+3. Commit your changes.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 3. Use GitHub Codespaces
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. Click the **Code** button on the repository page.
+2. Select **Codespaces** > **New codespace**.
+3. Edit and commit changes within the Codespace.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## Technologies
 
-**Edit a file directly in GitHub**
+* Vite
+* TypeScript
+* React
+* shadcn/ui
+* Tailwind CSS
+* Supabase (Postgres)
+* TanStack Query
+* Recharts
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Project Features
 
-**Use GitHub Codespaces**
+* Role-based dashboards (Student, Technician, Admin)
+* Ticket creation, assignment, and history
+* Interactive charts and reports
+* Real-time notifications and status monitoring
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deployment
 
-## What technologies are used for this project?
+Deploy to your hosting provider of choice. For example, with Vercel:
 
-This project is built with:
+1. Connect your GitHub repository.
+2. Set environment variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
+3. Deploy the `main` branch.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Custom Domain (Vercel)
 
-## How can I deploy this project?
+1. Go to your Vercel dashboard.
+2. Select the project.
+3. Under **Settings > Domains**, add your custom domain.
+4. Follow DNS setup instructions.
 
-Simply open [Lovable](https://lovable.dev/projects/ff56cb9c-5543-42ad-a9fc-fd7639265604) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+For more details on project structure or contribution guidelines, see the docs folder.

@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 // Configuración para Microsoft Authentication
 export const msalConfig = {
-  clientId: 'tu-client-id-aqui', // Necesitarías registrar una aplicación en Azure AD
+  clientId: '67553645-0db3-4480-b127-6f819a79e367', // Necesitarías registrar una aplicación en Azure AD
   authority: 'https://login.microsoftonline.com/common',
   redirectUri: window.location.origin,
 };

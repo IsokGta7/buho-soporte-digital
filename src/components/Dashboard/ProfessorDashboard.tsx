@@ -184,16 +184,16 @@ export const ProfessorDashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-3">
               <a href="#" className="block p-3 bg-gray-50 hover:bg-gray-100 rounded transition">
-                <p className="font-medium">Guía de Uso del Proyector</p>
-                <p className="text-sm text-muted-foreground">PDF · 2MB</p>
+                <p className="font-medium text-gray-900">Guía de Uso del Proyector</p>
+                <p className="text-sm text-muted-foreground text-gray-900">PDF · 2MB</p>
               </a>
               <a href="#" className="block p-3 bg-gray-50 hover:bg-gray-100 rounded transition">
-                <p className="font-medium">Tutorial de Calificaciones</p>
-                <p className="text-sm text-muted-foreground">Video · 10min</p>
+                <p className="font-medium text-gray-900">Tutorial de Calificaciones</p>
+                <p className="text-sm text-muted-foreground text-gray-900">Video · 10min</p>
               </a>
               <a href="#" className="block p-3 bg-gray-50 hover:bg-gray-100 rounded transition">
-                <p className="font-medium">Manual de Plataforma LMS</p>
-                <p className="text-sm text-muted-foreground">PDF · 5MB</p>
+                <p className="font-medium text-gray-900">Manual de Plataforma LMS</p>
+                <p className="text-sm text-muted-foreground text-gray-900">PDF · 5MB</p>
               </a>
             </div>
           </CardContent>

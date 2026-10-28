@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { ErrorState, EmptyState } from '@/components/StateMessage';
 
 interface TicketStats {
   total: number;
@@ -15,12 +18,7 @@ interface TicketStats {
   resolved: number;
   closed: number;
   assigned: number;
-}
-
-// Define types for RPC function responses
-interface StatusCount {
-  status: string;
-  count: string; // It's returned as string from Postgres
+  highPriority: number;
 }
 
 export const TechnicianDashboard: React.FC = () => {
@@ -63,93 +61,70 @@ export const TechnicianDashboard: React.FC = () => {
     return data || [];
   };
   
-  // Fetch ticket statistics
+  // Fetch ticket statistics. The status counts cover the tickets this
+  // technician can see: their own and the open queue.
   const fetchTicketStats = async (): Promise<TicketStats> => {
-    try {
-      // Get tickets by status using RPC
-      const { data: statusData, error: statusError } = await supabase.rpc('get_tickets_by_status') as {
-        data: StatusCount[] | null;
-        error: any;
-      };
-      
-      if (statusError) {
-        console.error('Error fetching ticket stats:', statusError);
-        throw statusError;
-      }
-      
-      // If RPC doesn't exist yet or returns no data, use mock data
-      const statusCounts = statusData && statusData.length > 0 
-        ? statusData
-        : [
-            { status: 'nuevo', count: '15' },
-            { status: 'asignado', count: '8' },
-            { status: 'en_progreso', count: '12' },
-            { status: 'resuelto', count: '25' },
-            { status: 'cerrado', count: '18' }
-          ];
-      
-      // Get tickets assigned to current technician
-      let assignedCount = 0;
-      if (user) {
-        const { data: assignedData, error: assignedError } = await supabase
-          .from('tickets')
-          .select('id')
-          .eq('assigned_to_id', user.id);
-          
-        if (assignedError) {
-          console.error('Error fetching assigned count:', assignedError);
-          throw assignedError;
-        }
-        
-        assignedCount = assignedData?.length || 0;
-      }
-      
-      // Format the stats
-      const stats: TicketStats = {
-        total: statusCounts.reduce((sum: number, item: StatusCount) => sum + Number(item.count), 0),
-        new: Number(statusCounts.find((s: StatusCount) => s.status === 'nuevo')?.count || 0),
-        inProgress: Number(statusCounts.find((s: StatusCount) => s.status === 'en_progreso')?.count || 0),
-        resolved: Number(statusCounts.find((s: StatusCount) => s.status === 'resuelto')?.count || 0),
-        closed: Number(statusCounts.find((s: StatusCount) => s.status === 'cerrado')?.count || 0),
-        assigned: assignedCount
-      };
-      
-      return stats;
-    } catch (error) {
-      console.error('Error in fetchTicketStats:', error);
-      // Return mock data on error
-      return {
-        total: 78,
-        new: 15,
-        inProgress: 12,
-        resolved: 25,
-        closed: 18,
-        assigned: 8
-      };
-    }
+    if (!user) throw new Error('Usuario no autenticado');
+
+    const [statusResult, assignedResult] = await Promise.all([
+      supabase.rpc('get_tickets_by_status'),
+      supabase.from('tickets').select('id, priority, status').eq('assigned_to_id', user.id),
+    ]);
+
+    if (statusResult.error) throw statusResult.error;
+    if (assignedResult.error) throw assignedResult.error;
+
+    const statusCounts = statusResult.data ?? [];
+    const assigned = assignedResult.data ?? [];
+    const countFor = (status: string) =>
+      Number(statusCounts.find((item) => item.status === status)?.count ?? 0);
+
+    return {
+      total: statusCounts.reduce((sum, item) => sum + Number(item.count), 0),
+      new: countFor('nuevo'),
+      inProgress: countFor('en_progreso'),
+      resolved: countFor('resuelto'),
+      closed: countFor('cerrado'),
+      assigned: assigned.length,
+      highPriority: assigned.filter(
+        (t) => (t.priority === 'alta' || t.priority === 'crítica')
+          && t.status !== 'resuelto' && t.status !== 'cerrado'
+      ).length,
+    };
   };
-  
-  const { data: assignedTickets = [], isLoading: isLoadingAssigned } = useQuery({
+
+  // Latest history entries on the tickets this technician can see.
+  const fetchRecentActivity = async () => {
+    const { data, error } = await supabase
+      .from('ticket_history')
+      .select('id, action, created_at, tickets(ticket_number)')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (error) throw error;
+    return data ?? [];
+  };
+
+  const { data: assignedTickets = [], isLoading: isLoadingAssigned, isError: isAssignedError, refetch: refetchAssigned } = useQuery({
     queryKey: ['technicianAssignedTickets', user?.id],
     queryFn: fetchAssignedTickets,
     enabled: !!user,
   });
   
-  const { data: pendingTickets = [], isLoading: isLoadingPending } = useQuery({
+  const { data: pendingTickets = [], isLoading: isLoadingPending, isError: isPendingError, refetch: refetchPending } = useQuery({
     queryKey: ['pendingTickets'],
     queryFn: fetchPendingTickets,
   });
   
-  const { data: ticketStats = {
-    total: 0,
-    new: 0,
-    inProgress: 0,
-    resolved: 0,
-    closed: 0,
-    assigned: 0
-  }, isLoading: isLoadingStats } = useQuery({
+  const { data: ticketStats, isLoading: isLoadingStats, isError: isStatsError, refetch: refetchStats } = useQuery({
     queryKey: ['ticketStats', user?.id],
     queryFn: fetchTicketStats,
+    enabled: !!user,
+  });
+
+  const { data: recentActivity = [], isLoading: isLoadingActivity, isError: isActivityError, refetch: refetchActivity } = useQuery({
+    queryKey: ['technicianRecentActivity', user?.id],
+    queryFn: fetchRecentActivity,
     enabled: !!user,
   });
   
@@ -202,9 +177,8 @@ export const TechnicianDashboard: React.FC = () => {
     </div>
   );
   
-  const isLoading = isLoadingAssigned || isLoadingPending || isLoadingStats;
-  
-  if (isLoading && (!ticketStats || !assignedTickets || !pendingTickets)) {
+  // The stats feed two sections, so wait for them before drawing the page.
+  if (isLoadingStats) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400 mr-2" />
@@ -234,6 +208,12 @@ export const TechnicianDashboard: React.FC = () => {
       </div>
       
       {/* Stats Cards */}
+      {isStatsError || !ticketStats ? (
+        <ErrorState
+          message="No se pudieron cargar las estadísticas de tickets."
+          onRetry={() => refetchStats()}
+        />
+      ) : (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -268,6 +248,7 @@ export const TechnicianDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      )}
       
       {/* Main Content */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -282,6 +263,11 @@ export const TechnicianDashboard: React.FC = () => {
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
+            ) : isAssignedError ? (
+              <ErrorState
+                message="No se pudieron cargar tus tickets asignados."
+                onRetry={() => refetchAssigned()}
+              />
             ) : assignedTickets.length > 0 ? (
               <div className="space-y-3">
                 {assignedTickets.map((ticket: any) => renderTicketItem(ticket))}
@@ -312,40 +298,49 @@ export const TechnicianDashboard: React.FC = () => {
             <CardDescription>Resumen de actividad reciente</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between items-center mb-1 text-sm">
-                <span>Carga de trabajo</span>
-                <span className="font-medium">{ticketStats.assigned}/{ticketStats.total} tickets</span>
-              </div>
-              <Progress 
-                value={ticketStats.total ? (ticketStats.assigned / ticketStats.total) * 100 : 0} 
-                className="h-2"
+            {isStatsError || !ticketStats ? (
+              <ErrorState
+                message="No se pudo cargar tu resumen de actividad."
+                onRetry={() => refetchStats()}
               />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <span>
-                  {ticketStats.resolved} tickets resueltos este mes
-                </span>
-              </div>
-              <div className="flex items-center">
-                <Clock className="w-5 h-5 text-yellow-500 mr-2" />
-                <span>
-                  Tiempo promedio de resolución: 1.8 días
-                </span>
-              </div>
-              <div className="flex items-center">
-                <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-                <span>
-                  2 tickets con alta prioridad
-                </span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <div className="flex justify-between items-center mb-1 text-sm">
+                    <span>Carga de trabajo</span>
+                    <span className="font-medium">{ticketStats.assigned}/{ticketStats.total} tickets</span>
+                  </div>
+                  <Progress
+                    value={ticketStats.total ? (ticketStats.assigned / ticketStats.total) * 100 : 0}
+                    className="h-2"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                    <span>
+                      {ticketStats.resolved} tickets resueltos
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <Clock className="w-5 h-5 text-yellow-500 mr-2" />
+                    <span>
+                      {ticketStats.inProgress} tickets en progreso
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+                    <span>
+                      {ticketStats.highPriority} tickets con alta prioridad
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
-        
+
         {/* Pending Tickets */}
         <Card>
           <CardHeader>
@@ -357,6 +352,11 @@ export const TechnicianDashboard: React.FC = () => {
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
+            ) : isPendingError ? (
+              <ErrorState
+                message="No se pudieron cargar los tickets pendientes."
+                onRetry={() => refetchPending()}
+              />
             ) : pendingTickets.length > 0 ? (
               <div className="space-y-3">
                 {pendingTickets.slice(0, 3).map((ticket: any) => renderTicketItem(ticket, true))}
@@ -387,36 +387,37 @@ export const TechnicianDashboard: React.FC = () => {
             <CardDescription>Últimos eventos en el sistema</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* This would typically come from a ticket_history table */}
-              <div className="flex gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
-                <div>
-                  <p className="text-sm">
-                    <span className="font-medium">Ticket #TK-1234</span> fue marcado como resuelto
-                  </p>
-                  <p className="text-xs text-muted-foreground">Hace 1 hora</p>
-                </div>
+            {isLoadingActivity ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
-              <div className="flex gap-3">
-                <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                <div>
-                  <p className="text-sm">
-                    <span className="font-medium">Nuevo comentario</span> en ticket #TK-1235
-                  </p>
-                  <p className="text-xs text-muted-foreground">Hace 3 horas</p>
-                </div>
+            ) : isActivityError ? (
+              <ErrorState
+                message="No se pudo cargar la actividad reciente."
+                onRetry={() => refetchActivity()}
+              />
+            ) : recentActivity.length === 0 ? (
+              <EmptyState message="Todavía no hay actividad en tus tickets." />
+            ) : (
+              <div className="space-y-4">
+                {recentActivity.map((item) => (
+                  <div key={item.id} className="flex gap-3">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                    <div>
+                      <p className="text-sm">
+                        {item.tickets?.ticket_number && (
+                          <span className="font-medium">Ticket #{item.tickets.ticket_number}: </span>
+                        )}
+                        {item.action}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: es })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex gap-3">
-                <div className="w-2 h-2 rounded-full bg-yellow-500 mt-2"></div>
-                <div>
-                  <p className="text-sm">
-                    <span className="font-medium">Ticket #TK-1236</span> ha sido asignado a ti
-                  </p>
-                  <p className="text-xs text-muted-foreground">Hace 5 horas</p>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

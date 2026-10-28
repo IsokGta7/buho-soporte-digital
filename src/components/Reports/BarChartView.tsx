@@ -1,7 +1,9 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ErrorState, EmptyState } from '@/components/StateMessage';
 
 interface BarChartViewProps {
   onCategoryClick: (category: string) => void;
@@ -11,89 +13,66 @@ interface BarChartViewProps {
 interface CategoryData {
   category: string;
   count: number;
-  displayName?: string;
-  fill?: string;
+  displayName: string;
 }
 
+const categoryMapping: Record<string, string> = {
+  'hardware': 'Hardware',
+  'software': 'Software',
+  'redes': 'Redes',
+  'servidores': 'Servidores',
+  'wifi_campus': 'WiFi Campus',
+  'acceso_biblioteca': 'Biblioteca',
+  'problemas_lms': 'LMS',
+  'correo_institucional': 'Correo',
+  'sistema_calificaciones': 'Calificaciones',
+  'software_academico': 'Software Académico',
+};
+
+const fetchCategoryData = async (): Promise<CategoryData[]> => {
+  const { data, error } = await supabase.rpc('get_tickets_by_category');
+  if (error) throw error;
+  return (data ?? []).map((item) => ({
+    category: item.category,
+    displayName: categoryMapping[item.category] || item.category,
+    count: Number(item.count),
+  }));
+};
+
 export const BarChartView: React.FC<BarChartViewProps> = ({ onCategoryClick, selectedCategory }) => {
-  const fetchCategoryData = async (): Promise<CategoryData[]> => {
-    try {
-      // Call the stored procedure for getting tickets by category
-      const { data, error } = await supabase.rpc('get_tickets_by_category') as { 
-        data: CategoryCount[] | null; 
-        error: any;
-      };
-        
-      if (error) {
-        console.error('Error fetching category data:', error);
-        throw error;
-      }
-      
-      // If data is not available yet or the RPC doesn't exist, use mock data
-      if (!data || data.length === 0) {
-        const mockData: CategoryData[] = [
-          { category: 'hardware', count: 42 },
-          { category: 'software', count: 28 },
-          { category: 'redes', count: 15 },
-          { category: 'servidores', count: 10 },
-          { category: 'wifi_campus', count: 22 },
-          { category: 'acceso_biblioteca', count: 18 },
-          { category: 'problemas_lms', count: 12 },
-          { category: 'correo_institucional', count: 8 },
-          { category: 'sistema_calificaciones', count: 14 },
-          { category: 'software_academico', count: 9 },
-        ];
-        return mockData;
-      }
-      
-      const categoryMapping: Record<string, string> = {
-        'hardware': 'Hardware',
-        'software': 'Software',
-        'redes': 'Redes',
-        'servidores': 'Servidores',
-        'wifi_campus': 'WiFi Campus',
-        'acceso_biblioteca': 'Biblioteca',
-        'problemas_lms': 'LMS',
-        'correo_institucional': 'Correo',
-        'sistema_calificaciones': 'Calificaciones',
-        'software_academico': 'Software Académico',
-      };
-      
-      return data.map(item => ({
-        category: item.category,
-        displayName: categoryMapping[item.category] || item.category,
-        count: Number(item.count),
-        fill: selectedCategory === item.category ? '#1e40af' : '#3b82f6'
-      }));
-    } catch (error) {
-      console.error('Error in fetchCategoryData:', error);
-      // Return mock data on error
-      return [
-        { category: 'hardware', count: 42 },
-        { category: 'software', count: 28 },
-        { category: 'redes', count: 15 },
-        { category: 'servidores', count: 10 },
-        { category: 'wifi_campus', count: 22 },
-        { category: 'acceso_biblioteca', count: 18 },
-        { category: 'problemas_lms', count: 12 },
-        { category: 'correo_institucional', count: 8 },
-        { category: 'sistema_calificaciones', count: 14 },
-        { category: 'software_academico', count: 9 },
-      ];
-    }
-  };
-  
-  const { data = [] } = useQuery({
-    queryKey: ['categoryData', selectedCategory],
+  const { data = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['categoryData'],
     queryFn: fetchCategoryData
   });
-  
+
   const handleBarClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
       onCategoryClick(data.activePayload[0].payload.category);
     }
   };
-  
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        className="h-full"
+        message="No se pudieron cargar los tickets por categoría."
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  if (data.length === 0) {
+    return <EmptyState className="h-full" message="Aún no hay tickets registrados." />;
+  }
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart
@@ -103,12 +82,19 @@ export const BarChartView: React.FC<BarChartViewProps> = ({ onCategoryClick, sel
       >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="displayName" />
-        <YAxis />
-        <Tooltip 
+        <YAxis allowDecimals={false} />
+        <Tooltip
           cursor={{ fill: '#f3f4f6' }}
           formatter={(value) => [`${value} tickets`, 'Cantidad']}
         />
-        <Bar dataKey="count" name="Tickets" fill="#3b82f6" />
+        <Bar dataKey="count" name="Tickets">
+          {data.map((item) => (
+            <Cell
+              key={item.category}
+              fill={selectedCategory === item.category ? '#1e40af' : '#3b82f6'}
+            />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

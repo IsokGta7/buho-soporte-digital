@@ -6,11 +6,26 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import { ErrorState, EmptyState } from '@/components/StateMessage';
 
-// Define a type for the service status response from RPC
-interface ServiceStatusResponse {
-  [key: string]: string; // Generic response object with string values
-}
+const SERVICES: { key: keyof ServiceStatus; label: string }[] = [
+  { key: 'wifi_campus', label: 'WiFi Campus' },
+  { key: 'biblioteca_virtual', label: 'Biblioteca Virtual' },
+  { key: 'plataforma_lms', label: 'Plataforma LMS' },
+  { key: 'portal_estudiantes', label: 'Portal Estudiantes' },
+  { key: 'correo_institucional', label: 'Correo Institucional' },
+];
+
+const serviceBadge = (state: ServiceStatus[keyof ServiceStatus]) => {
+  switch (state) {
+    case 'operational':
+      return { className: 'bg-green-100 text-green-800', label: 'Operativo' };
+    case 'degraded':
+      return { className: 'bg-yellow-100 text-yellow-800', label: 'Lento' };
+    default:
+      return { className: 'bg-red-100 text-red-800', label: 'Caído' };
+  }
+};
 
 interface Anuncio {
   id: string;
@@ -40,53 +55,22 @@ export const StudentDashboard: React.FC = () => {
     return data || [];
   };
   
-  const fetchServiceStatus = async (): Promise<ServiceStatus> => {
-    // Try to fetch from a service status table if it exists
-    try {
-      // Use the RPC function to get service status
-      const { data, error } = await supabase
-        .rpc('get_service_status') as { data: ServiceStatusResponse | null; error: any };
-      
-      if (error) {
-        console.error('Error fetching service status:', error);
-        throw error;
-      }
-      
-      // If we got data, return it as ServiceStatus
-      if (data) {
-        return {
-          wifi_campus: data.wifi_campus as 'operational' | 'degraded' | 'down',
-          biblioteca_virtual: data.biblioteca_virtual as 'operational' | 'degraded' | 'down',
-          plataforma_lms: data.plataforma_lms as 'operational' | 'degraded' | 'down',
-          portal_estudiantes: data.portal_estudiantes as 'operational' | 'degraded' | 'down',
-          correo_institucional: data.correo_institucional as 'operational' | 'degraded' | 'down'
-        };
-      }
-      
-      throw new Error('No service status data returned');
-    } catch (error) {
-      console.error('Error in fetchServiceStatus:', error);
-      // If there's an error (like table doesn't exist), return mock data
-      return {
-        wifi_campus: 'operational',
-        biblioteca_virtual: 'operational',
-        plataforma_lms: 'degraded',
-        portal_estudiantes: 'operational',
-        correo_institucional: 'operational'
-      };
-    }
+  // The latest service status row, or null when none has been published.
+  const fetchServiceStatus = async (): Promise<ServiceStatus | null> => {
+    const { data, error } = await supabase.rpc('get_service_status');
+    if (error) throw error;
+    return (data as unknown as ServiceStatus | null) ?? null;
   };
-  
-  const { data: tickets = [], isLoading, error } = useQuery({
+
+  const { data: tickets = [], isLoading, error, refetch: refetchTickets } = useQuery({
     queryKey: ['studentTickets', user?.id],
     queryFn: fetchStudentTickets,
     enabled: !!user,
   });
 
-  interface Anuncio { id: string; title: string; description: string; created_at: string }
   const fetchAnuncios = async (): Promise<Anuncio[]> => {
     const { data, error } = await supabase
-      .from<Anuncio>('anuncios')
+      .from('anuncios')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(5);
@@ -94,19 +78,18 @@ export const StudentDashboard: React.FC = () => {
     if (error) throw error;
     return data ?? [];
   };
-    const { data: anuncios = [], isLoading: loadingAnuncios } = useQuery({
-  queryKey: ['anuncios'],
-  queryFn: fetchAnuncios,
-});
+  const { data: anuncios = [], isLoading: loadingAnuncios, isError: anunciosError, refetch: refetchAnuncios } = useQuery({
+    queryKey: ['anuncios'],
+    queryFn: fetchAnuncios,
+  });
 
   
-  const { data: services = {
-    wifi_campus: 'operational',
-    biblioteca_virtual: 'operational',
-    plataforma_lms: 'degraded',
-    portal_estudiantes: 'operational',
-    correo_institucional: 'operational'
-  } as ServiceStatus } = useQuery({
+  const {
+    data: services,
+    isLoading: loadingServices,
+    isError: servicesError,
+    refetch: refetchServices,
+  } = useQuery({
     queryKey: ['serviceStatus'],
     queryFn: fetchServiceStatus
   });
@@ -158,9 +141,10 @@ export const StudentDashboard: React.FC = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
             ) : error ? (
-              <div className="p-4 border border-red-200 bg-red-50 rounded-md">
-                <p className="text-red-600">Error al cargar los tickets</p>
-              </div>
+              <ErrorState
+                message="No se pudieron cargar tus incidencias."
+                onRetry={() => refetchTickets()}
+              />
             ) : tickets.length > 0 ? (
               <div className="space-y-2">
                 {tickets.map((ticket: any) => (
@@ -209,6 +193,11 @@ export const StudentDashboard: React.FC = () => {
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
+            ) : anunciosError ? (
+              <ErrorState
+                message="No se pudieron cargar los anuncios."
+                onRetry={() => refetchAnuncios()}
+              />
             ) : anuncios.length > 0 ? (
               <div className="space-y-3">
                 {anuncios.map(a => (
@@ -235,63 +224,32 @@ export const StudentDashboard: React.FC = () => {
             <CardDescription>Estado actual de los servicios universitarios</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span>WiFi Campus</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  services.wifi_campus === 'operational' ? 'bg-green-100 text-green-800' : 
-                  services.wifi_campus === 'degraded' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {services.wifi_campus === 'operational' ? 'Operativo' : 
-                   services.wifi_campus === 'degraded' ? 'Lento' : 'Caído'}
-                </span>
+            {loadingServices ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
-              <div className="flex justify-between items-center">
-                <span>Biblioteca Virtual</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  services.biblioteca_virtual === 'operational' ? 'bg-green-100 text-green-800' : 
-                  services.biblioteca_virtual === 'degraded' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {services.biblioteca_virtual === 'operational' ? 'Operativo' : 
-                   services.biblioteca_virtual === 'degraded' ? 'Lento' : 'Caído'}
-                </span>
+            ) : servicesError ? (
+              <ErrorState
+                message="No se pudo cargar el estado de los servicios."
+                onRetry={() => refetchServices()}
+              />
+            ) : !services ? (
+              <EmptyState message="Aún no se ha publicado el estado de los servicios." />
+            ) : (
+              <div className="space-y-2">
+                {SERVICES.map(({ key, label }) => {
+                  const badge = serviceBadge(services[key]);
+                  return (
+                    <div key={key} className="flex justify-between items-center">
+                      <span>{label}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex justify-between items-center">
-                <span>Plataforma LMS</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  services.plataforma_lms === 'operational' ? 'bg-green-100 text-green-800' : 
-                  services.plataforma_lms === 'degraded' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {services.plataforma_lms === 'operational' ? 'Operativo' : 
-                   services.plataforma_lms === 'degraded' ? 'Lento' : 'Caído'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Portal Estudiantes</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  services.portal_estudiantes === 'operational' ? 'bg-green-100 text-green-800' : 
-                  services.portal_estudiantes === 'degraded' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {services.portal_estudiantes === 'operational' ? 'Operativo' : 
-                   services.portal_estudiantes === 'degraded' ? 'Lento' : 'Caído'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Correo Institucional</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  services.correo_institucional === 'operational' ? 'bg-green-100 text-green-800' : 
-                  services.correo_institucional === 'degraded' ? 'bg-yellow-100 text-yellow-800' : 
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {services.correo_institucional === 'operational' ? 'Operativo' : 
-                   services.correo_institucional === 'degraded' ? 'Lento' : 'Caído'}
-                </span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,53 +1,60 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ErrorState, EmptyState } from '@/components/StateMessage';
+
+// ticket_feedback.rating runs from 5 (best) to 1 (worst).
+const RATINGS: { rating: number; name: string; color: string }[] = [
+  { rating: 5, name: 'Muy Satisfecho', color: '#22c55e' },
+  { rating: 4, name: 'Satisfecho', color: '#84cc16' },
+  { rating: 3, name: 'Neutral', color: '#facc15' },
+  { rating: 2, name: 'Insatisfecho', color: '#f97316' },
+  { rating: 1, name: 'Muy Insatisfecho', color: '#ef4444' },
+];
+
+const fetchSatisfactionData = async () => {
+  const { data, error } = await supabase.from('ticket_feedback').select('rating');
+  if (error) throw error;
+
+  return RATINGS
+    .map(({ rating, name, color }) => ({
+      name,
+      color,
+      value: (data ?? []).filter((row) => row.rating === rating).length,
+    }))
+    .filter((item) => item.value > 0);
+};
 
 export const PieChartView: React.FC = () => {
-  // In a real implementation, this would query satisfaction ratings
-  // For now, we'll generate mock data that simulates database results
-  const fetchSatisfactionData = async () => {
-    // In a real implementation, we would query satisfaction ratings from feedback table
-    // Here we're generating mock data
-    
-    // This would be a query like:
-    /*
-    const { data, error } = await supabase
-      .from('ticket_feedback')
-      .select('rating, count(*)')
-      .group('rating');
-      
-    if (error) {
-      console.error('Error fetching satisfaction data:', error);
-      throw error;
-    }
-    
-    // Format data for the pie chart
-    return data.map(item => ({
-      name: getSatisfactionLabel(item.rating),
-      value: item.count
-    }));
-    */
-    
-    // Mock data until we have a feedback table
-    return [
-      { name: 'Muy Satisfecho', value: 42 },
-      { name: 'Satisfecho', value: 28 },
-      { name: 'Neutral', value: 15 },
-      { name: 'Insatisfecho', value: 10 },
-      { name: 'Muy Insatisfecho', value: 5 },
-    ];
-  };
-  
-  const { data = [] } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['satisfactionData'],
     queryFn: fetchSatisfactionData
   });
-  
-  // Colors for the pie chart segments
-  const COLORS = ['#22c55e', '#84cc16', '#facc15', '#f97316', '#ef4444'];
-  
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        className="h-full"
+        message="No se pudieron cargar las calificaciones de satisfacción."
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  if (data.length === 0) {
+    return <EmptyState className="h-full" message="Aún no hay calificaciones de satisfacción." />;
+  }
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
@@ -61,8 +68,8 @@ export const PieChartView: React.FC = () => {
           dataKey="value"
           label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
         >
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          {data.map((entry) => (
+            <Cell key={entry.name} fill={entry.color} />
           ))}
         </Pie>
         <Tooltip formatter={(value) => [`${value} usuarios`, 'Cantidad']} />

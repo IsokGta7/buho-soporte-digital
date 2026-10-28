@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
+import { FEATURES } from '@/config/features';
 
 export const ProfessorDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -61,6 +62,7 @@ export const ProfessorDashboard: React.FC = () => {
   const { data: maintenanceSchedule = [] } = useQuery({
     queryKey: ['maintenanceSchedule'],
     queryFn: fetchMaintenanceSchedule,
+    enabled: FEATURES.maintenanceSchedule,
   });
   
   return (
@@ -151,6 +153,7 @@ export const ProfessorDashboard: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {FEATURES.maintenanceSchedule && (
         <Card className="md:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Mantenimiento Planificado</CardTitle>
@@ -175,6 +178,7 @@ export const ProfessorDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+        )}
         
         <Card>
           <CardHeader className="pb-2">

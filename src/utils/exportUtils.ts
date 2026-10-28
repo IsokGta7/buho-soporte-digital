@@ -1,8 +1,9 @@
 
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+
+// jspdf (with html2canvas behind it), jspdf-autotable and xlsx are large and
+// only needed when someone exports, so they are loaded on first use instead of
+// being part of the main bundle.
 
 export interface ExportColumn {
   /** Column title printed in the PDF. */
@@ -12,8 +13,10 @@ export interface ExportColumn {
 }
 
 // Función para exportar a CSV
-export const exportToCSV = (data: any[], fileName: string) => {
+export const exportToCSV = async (data: any[], fileName: string) => {
   try {
+    const XLSX = await import('xlsx');
+
     // Crear un libro de trabajo
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -32,8 +35,13 @@ export const exportToCSV = (data: any[], fileName: string) => {
 };
 
 // Función para exportar a PDF
-export const exportToPDF = (data: any[], fileName: string, columns: ExportColumn[]) => {
+export const exportToPDF = async (data: any[], fileName: string, columns: ExportColumn[]) => {
   try {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
+
     const doc = new jsPDF();
 
     // Título
@@ -51,7 +59,7 @@ export const exportToPDF = (data: any[], fileName: string, columns: ExportColumn
     );
 
     // Añadir tabla usando jspdf-autotable
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 40,

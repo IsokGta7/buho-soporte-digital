@@ -138,9 +138,9 @@ export const ReportsContent: React.FC = () => {
         return;
       }
       if (kind === 'csv') {
-        exportToCSV(rows, 'tickets-reporte');
+        await exportToCSV(rows, 'tickets-reporte');
       } else {
-        exportToPDF(rows, 'tickets-reporte', exportColumns);
+        await exportToPDF(rows, 'tickets-reporte', exportColumns);
       }
     } catch (error) {
       console.error('Error al obtener los tickets para exportar:', error);

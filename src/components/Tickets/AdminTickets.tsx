@@ -40,7 +40,7 @@ export const AdminTickets: React.FC = () => {
       const { data, error } = await supabase
         .from<Profile>('profiles')
         .select('id, first_name, last_name')
-        .ilike('role', 'technician'); // Changed to ilike for case-insensitive match
+        .eq('role', 'technician');
 
       return data || [];
     },

@@ -1,3 +1,7 @@
+// Types for the database in supabase/migrations. Written by hand to match the
+// migrations; regenerate with `supabase gen types typescript` once the CLI can
+// reach the project, and keep the result in this file.
+
 export type Json =
   | string
   | number
@@ -9,6 +13,27 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      anuncios: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       attachments: {
         Row: {
           created_at: string
@@ -54,7 +79,7 @@ export type Database = {
           id: string
           read: boolean
           title: string
-          type: string
+          type: Database["public"]["Enums"]["notification_type"]
           user_id: string
         }
         Insert: {
@@ -63,7 +88,7 @@ export type Database = {
           id?: string
           read?: boolean
           title: string
-          type: string
+          type?: Database["public"]["Enums"]["notification_type"]
           user_id: string
         }
         Update: {
@@ -72,38 +97,79 @@ export type Database = {
           id?: string
           read?: boolean
           title?: string
-          type?: string
+          type?: Database["public"]["Enums"]["notification_type"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
-          created_at: string | null
+          created_at: string
           department: string | null
           first_name: string
           id: string
           last_name: string
-          role: string
-          updated_at: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           department?: string | null
-          first_name: string
+          first_name?: string
           id: string
-          last_name: string
-          role: string
-          updated_at?: string | null
+          last_name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           department?: string | null
           first_name?: string
           id?: string
           last_name?: string
-          role?: string
-          updated_at?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_status: {
+        Row: {
+          biblioteca_virtual: Database["public"]["Enums"]["service_state"]
+          correo_institucional: Database["public"]["Enums"]["service_state"]
+          created_at: string
+          id: string
+          plataforma_lms: Database["public"]["Enums"]["service_state"]
+          portal_estudiantes: Database["public"]["Enums"]["service_state"]
+          updated_at: string
+          wifi_campus: Database["public"]["Enums"]["service_state"]
+        }
+        Insert: {
+          biblioteca_virtual?: Database["public"]["Enums"]["service_state"]
+          correo_institucional?: Database["public"]["Enums"]["service_state"]
+          created_at?: string
+          id?: string
+          plataforma_lms?: Database["public"]["Enums"]["service_state"]
+          portal_estudiantes?: Database["public"]["Enums"]["service_state"]
+          updated_at?: string
+          wifi_campus?: Database["public"]["Enums"]["service_state"]
+        }
+        Update: {
+          biblioteca_virtual?: Database["public"]["Enums"]["service_state"]
+          correo_institucional?: Database["public"]["Enums"]["service_state"]
+          created_at?: string
+          id?: string
+          plataforma_lms?: Database["public"]["Enums"]["service_state"]
+          portal_estudiantes?: Database["public"]["Enums"]["service_state"]
+          updated_at?: string
+          wifi_campus?: Database["public"]["Enums"]["service_state"]
         }
         Relationships: []
       }
@@ -135,6 +201,55 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating: number
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_feedback_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: true
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -169,6 +284,13 @@ export type Database = {
             referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ticket_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tickets: {
@@ -180,8 +302,9 @@ export type Database = {
           description: string
           due_date: string | null
           id: string
-          priority: string
-          status: string
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
           ticket_number: string
           title: string
           updated_at: string
@@ -194,9 +317,11 @@ export type Database = {
           description: string
           due_date?: string | null
           id?: string
-          priority: string
-          status: string
-          ticket_number: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          /** Assigned by the database on insert; any value sent is ignored. */
+          ticket_number?: string
           title: string
           updated_at?: string
         }
@@ -208,23 +333,108 @@ export type Database = {
           description?: string
           due_date?: string | null
           id?: string
-          priority?: string
-          status?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
           ticket_number?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tickets_assigned_to_id_fkey"
+            columns: ["assigned_to_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      current_app_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_resolution_time_by_day: {
+        Args: {
+          category_filter?: string | null
+          date_from?: string | null
+          date_to?: string | null
+        }
+        Returns: {
+          avg_hours: number
+          category: string
+          day: string
+          resolved_count: number
+        }[]
+      }
+      get_service_status: {
+        Args: never
+        Returns: Json
+      }
+      get_tickets_by_category: {
+        Args: never
+        Returns: {
+          category: string
+          count: number
+        }[]
+      }
+      get_tickets_by_status: {
+        Args: never
+        Returns: {
+          count: number
+          status: string
+        }[]
+      }
+      get_top_recurring_issues: {
+        Args: {
+          category_filter?: string | null
+          date_from?: string | null
+          date_to?: string | null
+        }
+        Returns: {
+          category: string
+          count: number
+          title: string
+        }[]
+      }
+      get_users_by_role: {
+        Args: never
+        Returns: {
+          count: number
+          role: string
+        }[]
+      }
+      is_admin: {
+        Args: never
+        Returns: boolean
+      }
+      is_staff: {
+        Args: never
+        Returns: boolean
+      }
+      is_technician: {
+        Args: never
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      notification_type: "info" | "warning" | "success" | "error"
+      service_state: "operational" | "degraded" | "down"
+      ticket_priority: "baja" | "media" | "alta" | "crítica"
+      ticket_status: "nuevo" | "asignado" | "en_progreso" | "resuelto" | "cerrado"
+      user_role: "student" | "professor" | "technician" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -339,6 +549,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      notification_type: ["info", "warning", "success", "error"],
+      service_state: ["operational", "degraded", "down"],
+      ticket_priority: ["baja", "media", "alta", "crítica"],
+      ticket_status: ["nuevo", "asignado", "en_progreso", "resuelto", "cerrado"],
+      user_role: ["student", "professor", "technician", "admin"],
+    },
   },
 } as const

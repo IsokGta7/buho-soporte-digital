@@ -38,14 +38,11 @@ const TicketForm: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Generate a ticket number
-      const ticketNumber = `TK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-      
-      const { data, error } = await supabase
+      // The database assigns the ticket number (TK-0001, TK-0002, ...).
+      const { error } = await supabase
         .from('tickets')
         .insert([
           {
-            ticket_number: ticketNumber,
             title,
             description,
             category,

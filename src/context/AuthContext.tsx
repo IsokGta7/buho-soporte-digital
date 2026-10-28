@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, userData: any) => {
     try {
       // Register the user with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -132,26 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (error) throw error;
-      
-      // Create a profile entry for the user
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              first_name: userData.firstName,
-              last_name: userData.lastName,
-              role: userData.role
-            }
-          ]);
-        
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-          return { error: profileError };
-        }
-      }
-      
+
+      // The profile row is created by a trigger on auth.users from the
+      // metadata above, with the role set to student; an admin assigns any
+      // other role. Inserting it here would fail: there is no session yet
+      // when e-mail confirmation is on, and the row already exists otherwise.
       return { error: null };
     } catch (error) {
       console.error('Error signing up:', error);
